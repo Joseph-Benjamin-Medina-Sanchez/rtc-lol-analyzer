@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { RiotApiClient } from "@/infrastructure/api/riot-client";
 import { ProcessMatchTimelineUseCase } from "@/core/use-cases/process-match-timeline.use-case";
+import { AiAnalyzerClient } from "@/infrastructure/api/ai-client";
 import {
   sampleMatchSummary,
   sampleMatchTimeline,
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
 
     const isMock = validatedQuery.data.mock === "true" || env.USE_MOCK_DATA;
     const processor = new ProcessMatchTimelineUseCase();
+    const aiAnalyzer = new AiAnalyzerClient();
 
     if (isMock) {
       const metrics = processor.execute(
@@ -35,11 +37,13 @@ export async function GET(request: NextRequest) {
         sampleMatchTimeline,
         "sample-player-puuid"
       );
+      const evaluation = await aiAnalyzer.evaluateMatch(metrics);
 
       return NextResponse.json({
         source: "mock",
         matchId: sampleMatchSummary.matchId,
         metrics,
+        evaluation,
       });
     }
 
@@ -72,6 +76,7 @@ export async function GET(request: NextRequest) {
       matchTimeline,
       account.puuid
     );
+    const evaluation = await aiAnalyzer.evaluateMatch(metrics);
 
     return NextResponse.json({
       source: "riot-api",
@@ -81,6 +86,7 @@ export async function GET(request: NextRequest) {
         tagLine: account.tagLine,
       },
       metrics,
+      evaluation,
     });
   } catch (error: any) {
     const status = error.response?.status || 500;
